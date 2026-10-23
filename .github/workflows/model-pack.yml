@@ -1,0 +1,42 @@
+name: Model pack
+
+# Rebuilds the permissively licensed model files that need converting (anti-spoofing, CLIP) or mirroring
+# (MediaPipe Face Landmarker) from their upstream sources and publishes them as a release with SHA-256 sums.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag
+        default: model-pack-v1
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install conversion tools
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install onnx onnxruntime transformers huggingface_hub numpy
+      - name: Build
+        run: python tools/build_model_pack.py dist-models
+      - name: Add licences
+        run: |
+          cp tools/model-pack-NOTICE.md dist-models/NOTICE.md
+          curl -sSL -o dist-models/LICENSE-Apache-2.0.txt https://www.apache.org/licenses/LICENSE-2.0.txt
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" dist-models/* --title "Model pack ($TAG)" --prerelease \
+            --notes "Model files used by FaceVision AI's Model Manager. Rebuilt from upstream sources by tools/build_model_pack.py; see NOTICE.md for sources and licences and SHA256SUMS.txt for checksums. These are model weights, not an application release."
