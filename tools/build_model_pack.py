@@ -117,9 +117,8 @@ def clip():
             self.m = m
 
         def forward(self, pixel_values):
-            out = self.m.get_image_features(pixel_values=pixel_values)
-            if not torch.is_tensor(out):  # newer transformers return a model output object
-                out = out.image_embeds if hasattr(out, "image_embeds") else out[0]
+            pooled = self.m.vision_model(pixel_values=pixel_values)[1]  # pooler output
+            out = self.m.visual_projection(pooled)
             return out / out.norm(dim=-1, keepdim=True)
 
     enc = ImageEncoder(model).eval()
@@ -134,17 +133,22 @@ def clip():
     with torch.no_grad():
         ref = enc(x).numpy()
     got = ort.InferenceSession(str(fp32), providers=["CPUExecutionProvider"]).run(None, {"pixel_values": x.numpy()})[0]
+    assert ref.shape == (2, model.config.projection_dim), ref.shape
     err = float(np.abs(ref - got).max())
     assert err < 1e-3, err
+    src = f"https://huggingface.co/{CLIP_REPO_ID} @ {revision}"
+    record(fp32, source=src, license="MIT", converted=True, max_abs_diff_vs_pytorch=err)
     int8 = OUT / "clip_vit_b32_image_int8.onnx"
     quantize_dynamic(str(fp32), str(int8), weight_type=QuantType.QUInt8)
     q = ort.InferenceSession(str(int8), providers=["CPUExecutionProvider"]).run(None, {"pixel_values": x.numpy()})[0]
     cos = float(np.min(np.sum(ref * q, axis=1)))
     print(f"  int8 vs fp32 cosine similarity (min over batch): {cos:.4f}")
-    src = f"https://huggingface.co/{CLIP_REPO_ID} @ {revision}"
-    record(fp32, source=src, license="MIT", converted=True, max_abs_diff_vs_pytorch=err)
-    record(int8, source=src, license="MIT", converted=True, quantized="dynamic uint8 weights",
-           min_cosine_vs_fp32_on_random_input=cos)
+    if cos >= 0.98:
+        record(int8, source=src, license="MIT", converted=True, quantized="dynamic uint8 weights",
+               min_cosine_vs_fp32_on_random_input=cos)
+    else:
+        print("  int8 model is not close enough to fp32; not publishing it")
+        int8.unlink()
 
     prompts = json.loads((ROOT / "facevision" / "models" / "clip_prompts.json").read_text())
     templates = prompts["templates"]
@@ -153,9 +157,9 @@ def clip():
         texts = [t.format(p) for p in phrases for t in templates]
         with torch.no_grad():
             t = tok(texts, padding=True, return_tensors="pt")
-            e = model.get_text_features(**t)
-            if not torch.is_tensor(e):
-                e = e.text_embeds if hasattr(e, "text_embeds") else e[0]
+            pooled = model.text_model(input_ids=t["input_ids"], attention_mask=t["attention_mask"])[1]
+            e = model.text_projection(pooled)
+        assert e.shape == (len(texts), model.config.projection_dim), e.shape
         e = e / e.norm(dim=-1, keepdim=True)
         e = e.mean(dim=0)
         return (e / e.norm()).numpy().astype(np.float32)
