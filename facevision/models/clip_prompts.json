@@ -1,0 +1,41 @@
+{
+  "_comment": "Zero-shot prompts for the experimental CLIP attribute model. Each attribute compares a 'present' prompt set with an 'absent' prompt set. Age brackets are compared against each other. Do not add prompts for sensitive traits (race, ethnicity, religion, health, sexual orientation, etc.).",
+  "templates": [
+    "a photo of {}.",
+    "a close-up photo of {}.",
+    "a cropped photo of {}."
+  ],
+  "attributes": {
+    "eyeglasses": {
+      "present": ["a person wearing eyeglasses", "a face with clear prescription glasses"],
+      "absent": ["a person not wearing any glasses", "a face without glasses"]
+    },
+    "sunglasses": {
+      "present": ["a person wearing sunglasses", "a face with dark sunglasses covering the eyes"],
+      "absent": ["a person not wearing sunglasses", "a face with visible eyes"]
+    },
+    "face_mask": {
+      "present": ["a person wearing a face mask over the nose and mouth", "a face covered by a medical mask"],
+      "absent": ["a person with an uncovered mouth and nose", "a face without a mask"]
+    },
+    "beard": {
+      "present": ["a person with a beard", "a face with a full beard"],
+      "absent": ["a person with a clean-shaven face", "a face with no beard"]
+    },
+    "mustache": {
+      "present": ["a person with a mustache", "a face with a mustache above the lip"],
+      "absent": ["a person without a mustache", "a face with a bare upper lip"]
+    }
+  },
+  "age_brackets": {
+    "0-2": ["a baby", "an infant"],
+    "3-9": ["a young child", "a child under ten years old"],
+    "10-19": ["a teenager", "a person between ten and nineteen years old"],
+    "20-29": ["a person in their twenties", "a young adult in their twenties"],
+    "30-39": ["a person in their thirties", "an adult in their thirties"],
+    "40-49": ["a person in their forties", "a middle-aged adult in their forties"],
+    "50-59": ["a person in their fifties", "an adult in their fifties"],
+    "60-69": ["a person in their sixties", "an older adult in their sixties"],
+    "70+": ["a person in their seventies or older", "an elderly person"]
+  }
+}
