@@ -1,0 +1,9 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+numpy>=1.24
+opencv-contrib-python>=4.10
+onnxruntime>=1.17
+mediapipe>=0.10.21,<0.11
+cryptography>=42
+psutil>=5.9

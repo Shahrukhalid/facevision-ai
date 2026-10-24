@@ -1,0 +1,236 @@
+{
+  "pack_base_url": "https://github.com/Shahrukhalid/facevision-ai/releases/download/model-pack-v1",
+  "models": [
+    {
+      "id": "yunet",
+      "name": "YuNet face detector",
+      "task": "detection",
+      "version": "2023mar",
+      "license": "MIT",
+      "license_url": "https://github.com/opencv/opencv_zoo/blob/main/models/face_detection_yunet/LICENSE",
+      "commercial_use": true,
+      "research_only": false,
+      "source": "https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet",
+      "description": "Fast face detector with five facial key points. Required for every face feature.",
+      "evaluation": "WIDER Face validation AP: 0.884 easy, 0.866 medium, 0.750 hard (OpenCV Zoo README).",
+      "default": true,
+      "required": true,
+      "files": [
+        {
+          "key": "model",
+          "name": "face_detection_yunet_2023mar.onnx",
+          "urls": [
+            "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
+          ],
+          "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+          "size": 232589
+        }
+      ]
+    },
+    {
+      "id": "sface",
+      "name": "SFace face recognizer",
+      "task": "recognition",
+      "version": "2021dec",
+      "license": "Apache-2.0",
+      "license_url": "https://github.com/opencv/opencv_zoo/blob/main/models/face_recognition_sface/LICENSE",
+      "commercial_use": true,
+      "research_only": false,
+      "source": "https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface",
+      "description": "128-dimension face embeddings (MobileFaceNet trained with the SFace loss) for enrolment, matching and comparison.",
+      "evaluation": "LFW accuracy 0.9940 (OpenCV Zoo README). See docs/EVALUATION.md for results measured by this project.",
+      "default": true,
+      "required": false,
+      "recognizer": {
+        "dim": 128,
+        "default_threshold": 0.363,
+        "metric": "cosine"
+      },
+      "files": [
+        {
+          "key": "model",
+          "name": "face_recognition_sface_2021dec.onnx",
+          "urls": [
+            "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx"
+          ],
+          "sha256": "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79",
+          "size": 38696353
+        }
+      ]
+    },
+    {
+      "id": "face_landmarker",
+      "name": "MediaPipe Face Landmarker",
+      "task": "landmarks",
+      "version": "float16/1",
+      "license": "Apache-2.0",
+      "license_url": "https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE",
+      "commercial_use": true,
+      "research_only": false,
+      "source": "https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker",
+      "description": "478 3D face landmarks and 52 blendshape scores. Powers the face mesh, head pose, blink, smile and mouth measurements.",
+      "evaluation": "See Google's model card linked from the MediaPipe Face Landmarker documentation.",
+      "default": true,
+      "required": false,
+      "files": [
+        {
+          "key": "model",
+          "name": "face_landmarker.task",
+          "urls": [
+            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+            "{pack}/face_landmarker.task"
+          ],
+          "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+          "size": 3758596
+        }
+      ]
+    },
+    {
+      "id": "ferplus",
+      "name": "FER+ expression classifier",
+      "task": "expression",
+      "version": "8",
+      "license": "MIT",
+      "license_url": "https://github.com/onnx/models/blob/main/LICENSE",
+      "commercial_use": true,
+      "research_only": false,
+      "source": "https://github.com/onnx/models/tree/main/validated/vision/body_analysis/emotion_ferplus",
+      "description": "Classifies the visible facial expression into 8 FER+ classes. It describes appearance only, not what a person feels.",
+      "evaluation": "Trained on FER+ crowd-sourced labels for the FER2013 dataset (Barsoum et al., 2016).",
+      "default": true,
+      "required": false,
+      "files": [
+        {
+          "key": "model",
+          "name": "emotion-ferplus-8.onnx",
+          "urls": [
+            "https://github.com/onnx/models/raw/main/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx"
+          ],
+          "sha256": "a2a2ba6a335a3b29c21acb6272f962bd3d47f84952aaffa03b60986e04efa61c",
+          "size": 35040571
+        }
+      ]
+    },
+    {
+      "id": "antispoof",
+      "name": "Silent-Face anti-spoofing (MiniFASNet x2)",
+      "task": "liveness",
+      "version": "converted-v1",
+      "license": "Apache-2.0",
+      "license_url": "https://github.com/minivision-ai/Silent-Face-Anti-Spoofing/blob/master/LICENSE",
+      "commercial_use": true,
+      "research_only": false,
+      "source": "https://github.com/minivision-ai/Silent-Face-Anti-Spoofing",
+      "description": "Passive check for printed photos and screen replays. Two small models are combined. Converted to ONNX by tools/build_model_pack.py.",
+      "evaluation": "No independent evaluation by this project. Treat scores as a signal, not proof of liveness.",
+      "default": true,
+      "required": false,
+      "files": [
+        {
+          "key": "v2",
+          "name": "minifasnet_v2_scale2.7_80x80.onnx",
+          "urls": [
+            "{pack}/minifasnet_v2_scale2.7_80x80.onnx"
+          ],
+          "sha256": "effba232e47c96ed75ecda9a01f5b9574aef07bdbb2e875f5ac963b9a74ca04b",
+          "size": 1744201
+        },
+        {
+          "key": "v1se",
+          "name": "minifasnet_v1se_scale4.0_80x80.onnx",
+          "urls": [
+            "{pack}/minifasnet_v1se_scale4.0_80x80.onnx"
+          ],
+          "sha256": "cf1fd9a44986d0260b3c719df443d52dbbef56a427c2668035eda5fafb8ec89e",
+          "size": 1743369
+        }
+      ]
+    },
+    {
+      "id": "clip_attributes",
+      "name": "CLIP ViT-B/32 zero-shot attributes",
+      "task": "attributes",
+      "version": "converted-v1",
+      "license": "MIT",
+      "license_url": "https://github.com/openai/CLIP/blob/main/LICENSE",
+      "commercial_use": true,
+      "research_only": false,
+      "source": "https://huggingface.co/openai/clip-vit-base-patch32",
+      "description": "Experimental zero-shot estimates for eyeglasses, sunglasses, face masks, beards and mustaches, plus an age-bracket distribution. Large (about 350 MB).",
+      "evaluation": "Not evaluated for these prompts by this project. CLIP's own model card documents demographic biases.",
+      "default": false,
+      "required": false,
+      "files": [
+        {
+          "key": "image",
+          "name": "clip_vit_b32_image_fp32.onnx",
+          "urls": [
+            "{pack}/clip_vit_b32_image_fp32.onnx"
+          ],
+          "sha256": "f8f70af18d5f6f6e9b6cb11577bb8dc14d1b3e436f035f9079b70f27913be556",
+          "size": 351583006
+        },
+        {
+          "key": "text",
+          "name": "clip_vit_b32_text_embeddings.npz",
+          "urls": [
+            "{pack}/clip_vit_b32_text_embeddings.npz"
+          ],
+          "sha256": "e435197a4f973b7d5572b98d6722a8283da7dc7dc9f7fa7a4b29a937ac315dea",
+          "size": 41170
+        }
+      ]
+    },
+    {
+      "id": "insightface_buffalo_s",
+      "name": "InsightFace buffalo_s (age + appearance, MobileFaceNet ArcFace)",
+      "task": "research",
+      "version": "v0.7",
+      "license": "Non-commercial research only",
+      "license_url": "https://github.com/deepinsight/insightface#license",
+      "commercial_use": false,
+      "research_only": true,
+      "source": "https://github.com/deepinsight/insightface/releases/tag/v0.7",
+      "description": "Optional research pack. Adds a numeric age estimate, an optional appearance-based classifier (off by default) and an alternative ArcFace recognizer. Downloaded from InsightFace's own release only after you accept its licence.",
+      "evaluation": "InsightFace does not publish an age error figure for genderage.onnx. See docs/EVALUATION.md for the recognizer results measured by this project.",
+      "default": false,
+      "required": false,
+      "recognizer": {
+        "dim": 512,
+        "default_threshold": 0.3,
+        "metric": "cosine",
+        "file": "arcface"
+      },
+      "files": [
+        {
+          "key": "genderage",
+          "name": "genderage.onnx",
+          "archive": {
+            "urls": [
+              "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_s.zip"
+            ],
+            "sha256": "d85a87f503f691807cd8bb97128bdf7a0660326cd9cd02657127fa978bab8b5e",
+            "size": 127607557,
+            "member": "genderage.onnx"
+          },
+          "sha256": "4fde69b1c810857b88c64a335084f1c3fe8f01246c9a191b48c7bb756d6652fb",
+          "size": 1322532
+        },
+        {
+          "key": "arcface",
+          "name": "w600k_mbf.onnx",
+          "archive": {
+            "urls": [
+              "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_s.zip"
+            ],
+            "sha256": "d85a87f503f691807cd8bb97128bdf7a0660326cd9cd02657127fa978bab8b5e",
+            "size": 127607557,
+            "member": "w600k_mbf.onnx"
+          },
+          "sha256": "9cc6e4a75f0e2bf0b1aed94578f144d15175f357bdc05e815e5c4a02b319eb4f",
+          "size": 13616099
+        }
+      ]
+    }
+  ]
+}

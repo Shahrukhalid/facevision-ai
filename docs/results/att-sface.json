@@ -1,0 +1,182 @@
+{
+  "dataset": "AT&T Database of Faces (40 people, 10 images each, upscaled 3x)",
+  "recognizer": "sface",
+  "people": 40,
+  "images": 400,
+  "detection_failures": 0,
+  "seconds": 4.8,
+  "genuine_pairs": 1800,
+  "impostor_pairs": 78000,
+  "genuine_similarity_mean": 0.8232,
+  "impostor_similarity_mean": 0.0793,
+  "at_default_threshold": {
+    "threshold": 0.363,
+    "false_non_match_rate": 0.0,
+    "false_match_rate": 0.001731
+  },
+  "equal_error_rate_approx": {
+    "threshold": 0.425,
+    "false_non_match_rate": 0.00056,
+    "false_match_rate": 0.000308
+  },
+  "calibrated_thresholds": {
+    "fmr_0.01": {
+      "threshold": 0.3039,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.01
+    },
+    "fmr_0.001": {
+      "threshold": 0.3875,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.001
+    },
+    "fmr_0.0001": {
+      "threshold": 0.4431,
+      "false_non_match_rate": 0.00222,
+      "false_match_rate": 0.000103
+    }
+  },
+  "rank1_identification_accuracy": 1.0,
+  "curve": [
+    {
+      "threshold": 0.1,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.415372
+    },
+    {
+      "threshold": 0.125,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.323603
+    },
+    {
+      "threshold": 0.15,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.241359
+    },
+    {
+      "threshold": 0.175,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.1695
+    },
+    {
+      "threshold": 0.2,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.112628
+    },
+    {
+      "threshold": 0.225,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.071269
+    },
+    {
+      "threshold": 0.25,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.041192
+    },
+    {
+      "threshold": 0.275,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.021756
+    },
+    {
+      "threshold": 0.3,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.011115
+    },
+    {
+      "threshold": 0.325,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.005231
+    },
+    {
+      "threshold": 0.35,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.002487
+    },
+    {
+      "threshold": 0.375,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.001385
+    },
+    {
+      "threshold": 0.4,
+      "false_non_match_rate": 0.0,
+      "false_match_rate": 0.000705
+    },
+    {
+      "threshold": 0.425,
+      "false_non_match_rate": 0.00056,
+      "false_match_rate": 0.000308
+    },
+    {
+      "threshold": 0.45,
+      "false_non_match_rate": 0.00222,
+      "false_match_rate": 5.1e-05
+    },
+    {
+      "threshold": 0.475,
+      "false_non_match_rate": 0.00611,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.5,
+      "false_non_match_rate": 0.01222,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.525,
+      "false_non_match_rate": 0.02333,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.55,
+      "false_non_match_rate": 0.02722,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.575,
+      "false_non_match_rate": 0.03278,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.6,
+      "false_non_match_rate": 0.03944,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.625,
+      "false_non_match_rate": 0.05167,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.65,
+      "false_non_match_rate": 0.06944,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.675,
+      "false_non_match_rate": 0.09444,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.7,
+      "false_non_match_rate": 0.12667,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.725,
+      "false_non_match_rate": 0.16778,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.75,
+      "false_non_match_rate": 0.20833,
+      "false_match_rate": 0.0
+    },
+    {
+      "threshold": 0.775,
+      "false_non_match_rate": 0.255,
+      "false_match_rate": 0.0
+    }
+  ]
+}

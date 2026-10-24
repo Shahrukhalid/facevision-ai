@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "facevision-ai"
+version = "0.1.0"
+description = "Local, consent-based face detection, analysis, recognition and anonymisation"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+  "python-multipart>=0.0.9",
+  "numpy>=1.24",
+  "opencv-contrib-python>=4.10",
+  "onnxruntime>=1.17",
+  "mediapipe>=0.10.21,<0.11",
+  "cryptography>=42",
+  "psutil>=5.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27", "scikit-image>=0.22", "ruff>=0.5"]
+
+[project.scripts]
+facevision = "facevision.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["facevision*"]
+
+[tool.setuptools.package-data]
+facevision = ["models/*.json", "web/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["B008", "E731", "B904", "B905"]

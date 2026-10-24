@@ -66,8 +66,9 @@ def face_landmarker():
 
 def anti_spoofing():
     print("Silent-Face anti-spoofing (MiniFASNet) -> ONNX")
-    import torch
     from collections import OrderedDict
+
+    import torch
 
     repo = WORK / "silent-face"
     if not repo.exists():
