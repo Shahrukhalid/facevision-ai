@@ -1,0 +1,222 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check facevision tests tools packaging
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: facevision/web
+          retention-days: 7
+
+  test:
+    needs: frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, python: "3.12", extra: true }
+          - { os: ubuntu-24.04, python: "3.10", extra: false }
+          - { os: ubuntu-24.04, python: "3.13", extra: false }
+          - { os: macos-14, python: "3.12", extra: true }
+          - { os: windows-2022, python: "3.12", extra: true }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - run: echo "FV_DATA_DIR=$RUNNER_TEMP/fvdata" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: facevision/web
+      - name: Install (from the lockfile)
+        run: |
+          python -m pip install -r requirements.lock -r requirements-dev.lock
+          python -m pip install -e . --no-deps
+      - name: Tests without models
+        run: python -m pytest -q
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/fvdata/models
+          key: models-${{ runner.os }}-${{ matrix.extra }}-${{ hashFiles('facevision/models/manifest.json') }}
+      - name: Download models (checksum-verified)
+        run: |
+          python -m facevision models install --defaults
+          if [ "${{ matrix.extra }}" = "true" ]; then
+            python -m facevision models install clip_attributes
+            # research-licensed pack: used here only to test the opt-in code path
+            python -m facevision models install insightface_buffalo_s --accept-research-license
+          fi
+          python -m facevision models verify
+          python - <<'EOF'
+          import os, shutil, pathlib
+          src = pathlib.Path(os.environ["FV_DATA_DIR"]) / "models"
+          dst = pathlib.Path(os.environ["FV_DATA_DIR"]) / "models-flat"
+          dst.mkdir(exist_ok=True)
+          for f in src.glob("*/*"):
+              shutil.copyfile(f, dst / f.name)
+          print(sorted(p.name for p in dst.iterdir()))
+          EOF
+      - name: Fetch the AT&T Database of Faces (test data, not redistributed)
+        run: git clone --depth 1 https://github.com/maheshreddykukunooru/face_recognition "$RUNNER_TEMP/att" || echo "AT&T faces unavailable; those tests will be skipped"
+      - name: Tests with models
+        run: |
+          export FV_TEST_MODELS="$FV_DATA_DIR/models-flat"
+          [ -d "$RUNNER_TEMP/att/att_faces" ] && export FV_TEST_ATT="$RUNNER_TEMP/att/att_faces"
+          python -m pytest -v -rs
+      - name: Benchmark presets
+        if: matrix.extra
+        run: python -m facevision bench --seconds 8 | tee bench-${{ matrix.os }}.json
+      - name: Recognition evaluation (AT&T)
+        if: matrix.extra
+        run: |
+          if [ -d "$RUNNER_TEMP/att/att_faces" ]; then
+            python -m facevision evaluate "$RUNNER_TEMP/att/att_faces" --upscale 3 --output eval-${{ matrix.os }}.json
+          fi
+      - uses: actions/upload-artifact@v4
+        if: matrix.extra
+        with:
+          name: measurements-${{ matrix.os }}
+          path: |
+            bench-*.json
+            eval-*.json
+
+  e2e:
+    needs: frontend
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "FV_DATA_DIR=$RUNNER_TEMP/fvdata" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: facevision/web
+      - run: |
+          python -m pip install -r requirements.lock -r requirements-dev.lock playwright
+          python -m pip install -e . --no-deps
+          python -m playwright install --with-deps chromium
+          python -m facevision models install --defaults
+      - name: Browser test with a fake camera
+        run: |
+          python -m facevision serve > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:8600/api/health && break; sleep 1; done
+          python tests/e2e/run_ui.py http://localhost:8600 --shots e2e-screenshots
+      - if: always()
+        run: tail -n 80 server.log || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: e2e-screenshots
+
+  security:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan for committed secrets (gitleaks)
+        run: |
+          curl -sSL -o gl.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+          tar xzf gl.tgz gitleaks
+          ./gitleaks detect --source . --redact --verbose
+      - name: Check for committed biometric or model files
+        run: |
+          bad=$(git ls-files | grep -Ei '\.(onnx|task|pth|npz|db|y4m|jpg|jpeg|png|mp4|mov)$' | grep -v '^docs/images/' || true)
+          if [ -n "$bad" ]; then echo "Unexpected binary files:"; echo "$bad"; exit 1; fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependency licences
+        run: |
+          python -m pip install -r requirements.lock pip-licenses
+          pip-licenses --format=markdown --order=license
+          pip-licenses --fail-on="GNU General Public License v3 (GPLv3);GNU Affero General Public License v3;AGPL-3.0"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Frontend licences
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund --omit=dev
+          npx --yes license-checker-rseidelsohn --production --summary --failOn "GPL-2.0;GPL-3.0;AGPL-3.0"
+
+  setup-scripts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: scripts/setup.sh
+        if: runner.os != 'Windows'
+        shell: bash
+        run: FV_DATA_DIR="$RUNNER_TEMP/fvsetup" bash scripts/setup.sh
+      - name: scripts\setup.ps1
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:FV_DATA_DIR = "$env:RUNNER_TEMP\fvsetup"
+          powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Start and check
+        shell: bash
+        run: |
+          export FV_DATA_DIR="$RUNNER_TEMP/fvsetup"
+          PY=.venv/bin/python; [ -f .venv/Scripts/python.exe ] && PY=.venv/Scripts/python.exe
+          $PY -m facevision models list
+          $PY -m facevision serve > serve.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:8600/api/health && break; sleep 1; done
+          curl -sf http://localhost:8600/ | grep -q "<title>FaceVision AI</title>"
+          curl -sf http://localhost:8600/api/models | python -c "import json,sys; m={x['id']:x['installed'] for x in json.load(sys.stdin)}; print(m); assert all(m[k] for k in ['yunet','sface','face_landmarker','ferplus','antispoof'])"

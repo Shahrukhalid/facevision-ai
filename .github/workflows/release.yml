@@ -1,0 +1,139 @@
+name: Release
+
+# Builds the web app, a Python wheel and desktop bundles for macOS (Apple Silicon), Windows and Linux.
+# Each bundle is smoke-tested (start, install the face detector, detect a face over HTTP) before it is published.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build (for example v0.1.0)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: cd frontend && npm ci --no-audit --no-fund && npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: facevision/web
+
+  wheel:
+    needs: web
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: facevision/web
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          pip install build
+          python -m build --wheel
+          unzip -l dist/*.whl | grep -q "facevision/web/index.html"
+      - name: Install the wheel in a clean environment and start it
+        run: |
+          python -m venv /tmp/w && /tmp/w/bin/pip install -r requirements.lock dist/*.whl
+          cd /tmp && /tmp/w/bin/python -m facevision serve --port 8650 > /tmp/w.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:8650/api/health && break; sleep 1; done
+          curl -sf http://localhost:8650/ | grep -q "<title>FaceVision AI</title>"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel
+          path: dist/*.whl
+
+  bundle:
+    needs: web
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14, name: macos-arm64 }
+          - { os: windows-2022, name: windows-x64 }
+          - { os: ubuntu-24.04, name: linux-x64 }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: facevision/web
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.lock pyinstaller scikit-image
+      - run: pyinstaller packaging/facevision.spec --noconfirm --log-level WARN
+      - name: Smoke test the bundle
+        run: |
+          export FV_DATA_DIR="$RUNNER_TEMP/fvbundle" FV_PORT=8660
+          BIN=dist/FaceVisionAI/FaceVisionAI
+          [ -f "$BIN.exe" ] && BIN="$BIN.exe"
+          "$BIN" models install yunet
+          "$BIN" serve > bundle.log 2>&1 &
+          for i in $(seq 1 90); do curl -sf http://localhost:8660/api/health && break; sleep 1; done
+          curl -sf http://localhost:8660/ | grep -q "<title>FaceVision AI</title>"
+          python -c "import cv2; from skimage import data; cv2.imwrite('face.jpg', cv2.cvtColor(data.astronaut(), cv2.COLOR_RGB2BGR))"
+          curl -sf -F file=@face.jpg http://localhost:8660/api/detect | tee detect.json
+          python -c "import json; assert json.load(open('detect.json'))['face_count'] == 1"
+      - if: always()
+        run: cat bundle.log || true
+      - name: Archive
+        run: |
+          cd dist
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            ditto -c -k --keepParent FaceVisionAI.app ../FaceVisionAI-${{ matrix.name }}.zip
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            7z a -tzip ../FaceVisionAI-${{ matrix.name }}.zip FaceVisionAI > /dev/null
+          else
+            tar czf ../FaceVisionAI-${{ matrix.name }}.tar.gz FaceVisionAI
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.name }}
+          path: FaceVisionAI-*
+
+  publish:
+    needs: [wheel, bundle]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create or update the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          mkdir out
+          find artifacts -type f \( -name '*.whl' -o -name 'FaceVisionAI-*' \) -exec cp {} out/ \;
+          (cd out && sha256sum * > SHA256SUMS.txt)
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" out/* --clobber
+          else
+            gh release create "$TAG" out/* --title "FaceVision AI $TAG" --notes-file docs/RELEASE_NOTES.md
+          fi

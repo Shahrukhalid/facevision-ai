@@ -1,0 +1,26 @@
+name: Refresh npm lockfile
+
+# Regenerates frontend/package-lock.json from frontend/package.json and commits it.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: cd frontend && npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit if changed
+        run: |
+          git config user.name "Shahrukhalid"
+          git config user.email "90670731+Shahrukhalid@users.noreply.github.com"
+          git add frontend/package-lock.json
+          git diff --cached --quiet && echo "No change" && exit 0
+          git commit -m "Update frontend lockfile"
+          git push

@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Frontend
+frontend/node_modules/
+facevision/web/
+
+# Local data, models and secrets: never commit these
+.env
+data/
+local-data/
+*.db
+*.db-wal
+*.db-shm
+*.onnx
+*.task
+*.pth
+*.npz
+.dev-models/
+model-pack-work/
+dist-models/
+
+# Media
+*.mp4
+*.mov
+*.webm
+*.y4m
+e2e-screenshots/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
