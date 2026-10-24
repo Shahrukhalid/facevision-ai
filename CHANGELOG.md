@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Security: web app dependencies updated (Vite 6.4.5, Vitest 4.1.12, React Router 7.18.4, PostCSS selector parser 7); `npm audit` reports 0 vulnerabilities. Building the web app now needs Node.js 20 or newer.
+- Fixed: live frame-rate counter could divide by zero on Windows.
+- Linux: MediaPipe needs `libgles2` and `libegl1` (see Troubleshooting).
+
 ## 0.1.0
 
 First public release.
