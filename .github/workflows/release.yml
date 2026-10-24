@@ -83,6 +83,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: System libraries for MediaPipe (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libgles2 libegl1
       - run: python -m pip install -r requirements.lock pyinstaller scikit-image
       - run: pyinstaller packaging/facevision.spec --noconfirm --log-level WARN
       - name: Smoke test the bundle
