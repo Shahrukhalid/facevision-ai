@@ -47,7 +47,7 @@ More in [docs/PRIVACY.md](docs/PRIVACY.md) and [SECURITY.md](SECURITY.md).
 
 ## Quick start
 
-Requirements: **Python 3.10–3.13**, **Node.js 18+** (to build the web app) and about 1 GB of disk space.
+Requirements: **Python 3.10–3.13**, **Node.js 20+** (to build the web app) and about 1 GB of disk space.
 
 **macOS / Linux**
 

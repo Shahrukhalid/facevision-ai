@@ -14,7 +14,7 @@ Run the built-in check first. It prints versions, hardware acceleration, model s
 | `Python 3.10-3.13 is required` | Install Python 3.12 (see the install guides). Python 3.14 is not supported yet because some dependencies have no wheels for it. |
 | `pip` fails building a package | Upgrade pip (`python -m pip install -U pip`) and make sure you are on a 64-bit Python. |
 | Linux: `libGLESv2.so.2: cannot open shared object file` (landmarks, eyes and smile missing) | MediaPipe needs the OpenGL ES and EGL libraries. On Debian/Ubuntu: `sudo apt-get install libgles2 libegl1`, then restart FaceVision AI. |
-| `Node.js was not found` | Install Node.js 18 or later and run the setup script again. The API works without the web app at `/api/docs`. |
+| `Node.js was not found` | Install Node.js 20 or later and run the setup script again. The API works without the web app at `/api/docs`. |
 | PowerShell says scripts are disabled | Run it as `powershell -ExecutionPolicy Bypass -File scripts\setup.ps1`. |
 
 ## Models

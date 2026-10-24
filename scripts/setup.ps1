@@ -27,7 +27,7 @@ if (Test-Path facevision\web\index.html) {
     npm run build
     Pop-Location
 } else {
-    Write-Host "Node.js was not found, so the web app was not built. Install Node.js 18+ from https://nodejs.org and run this again."
+    Write-Host "Node.js was not found, so the web app was not built. Install Node.js 20+ from https://nodejs.org and run this again."
 }
 
 if ($env:FV_SKIP_MODELS -ne "1") {

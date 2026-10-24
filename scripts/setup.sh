@@ -29,7 +29,7 @@ elif command -v npm >/dev/null 2>&1; then
   echo "Building the web app..."
   (cd frontend && npm ci --no-audit --no-fund && npm run build)
 else
-  echo "Node.js was not found, so the web app was not built. Install Node.js 18+ (brew install node) and run this script again."
+  echo "Node.js was not found, so the web app was not built. Install Node.js 20+ (brew install node) and run this script again."
   echo "The API still works without it: http://localhost:8600/api/docs"
 fi
 
