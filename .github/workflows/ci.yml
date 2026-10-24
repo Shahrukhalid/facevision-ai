@@ -117,6 +117,12 @@ jobs:
           if [ -d "$RUNNER_TEMP/att/att_faces" ]; then
             python -m facevision evaluate "$RUNNER_TEMP/att/att_faces" --upscale 3 --output eval-${{ matrix.os }}.json
           fi
+      - name: Measurement summary
+        if: matrix.extra
+        run: |
+          for f in bench-*.json eval-*.json; do
+            if [ -f "$f" ]; then { echo "### $f"; echo '```json'; cat "$f"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"; fi
+          done
       - uses: actions/upload-artifact@v4
         if: matrix.extra
         with:
