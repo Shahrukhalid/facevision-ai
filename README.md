@@ -85,13 +85,15 @@ Every file has a pinned SHA-256 checksum. Converted models are rebuilt from sour
 
 ## Measured performance
 
-Measured with `python -m facevision bench` (one face in a 1280×720 frame, CPU only):
+Measured with `python -m facevision bench` (one face in a 1280×720 frame; mean latency per frame):
 
 | Machine | Fast | Balanced | Detailed |
 | --- | --- | --- | --- |
+| macOS 14, Apple Silicon (GitHub CI runner) | 9 ms (106 fps) | 29 ms (35 fps) | 44 ms (23 fps) |
+| Windows Server 2022 (GitHub CI runner) | 8 ms (124 fps) | 31 ms (32 fps) | 54 ms (19 fps) |
 | Linux x86-64, 2 vCPU (development container) | 5 ms (189 fps) | 23 ms (43 fps) | 52 ms (19 fps) |
 
-Results from the macOS (Apple Silicon) and Windows CI runners are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Run the benchmark on your own machine for real numbers.
+CI runners are shared virtual machines without a GPU. Per-stage timings and p95 latencies: [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Run the benchmark on your own machine for real numbers.
 
 ## Recognition accuracy
 

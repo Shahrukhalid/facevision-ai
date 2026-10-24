@@ -13,6 +13,8 @@ This page reports what has actually been measured, how, and what it does and doe
 | SFace (default 0.363) | 0 / 400 | 0.823 | 0.079 | 0.0% | 0.173% | 0.388 (FNMR 0.0%) | 100% |
 | ArcFace MobileFaceNet, research pack (default 0.30) | 0 / 400 | 0.797 | 0.043 | 0.0% | 0.023% | 0.272 (FNMR 0.0%) | 100% |
 
+The SFace evaluation is repeated on every CI run on Linux, macOS and Windows. In [CI run #5](https://github.com/Shahrukhalid/facevision-ai/actions/runs/40048661741) all three gave 0 / 400 detection failures, 0.0% FNMR, FMR 0.173–0.176% at the default threshold and 100% rank-1, matching the table above.
+
 Raw outputs: [`results/att-sface.json`](results/att-sface.json), [`results/att-arcface-mbf.json`](results/att-arcface-mbf.json).
 
 **What this does not show.** AT&T is small, controlled and almost 35 years old: frontal faces, plain background, one camera, 40 people, little demographic variety. It confirms that the pipeline works end to end and that the default thresholds are sensible. It does **not** predict accuracy on phone photos, video, poor lighting, large pose changes, children, ageing over years, or populations unlike the volunteers. Upstream, SFace reports 99.40% accuracy on LFW (OpenCV Zoo).
