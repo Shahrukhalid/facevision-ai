@@ -374,9 +374,11 @@ class LiveSession:
         elif self.tracker.tracks:
             events = self.tracker.flush()
         total = (time.perf_counter() - t0) * 1000
-        self._times.append(time.time())
-        self._times = [x for x in self._times if x > time.time() - 2.0]
-        fps = (len(self._times) - 1) / (self._times[-1] - self._times[0]) if len(self._times) > 1 else 0.0
+        now_pc = time.perf_counter()
+        self._times.append(now_pc)
+        self._times = [x for x in self._times if x > now_pc - 2.0]
+        span = self._times[-1] - self._times[0]
+        fps = (len(self._times) - 1) / span if len(self._times) > 1 and span > 0 else 0.0
         return {
             "frame": self.frame,
             "image": {"width": int(image.shape[1]), "height": int(image.shape[0])},
