@@ -1,5 +1,7 @@
 # FaceVision AI
 
+**Website: <https://shahrukhalid.github.io/facevision-ai/>**
+
 **Local, consent-based face detection, analysis, recognition and anonymisation.** Runs on your own computer with open models, works offline after setup, and never uploads faces anywhere.
 
 [![CI](https://github.com/Shahrukhalid/facevision-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Shahrukhalid/facevision-ai/actions/workflows/ci.yml)
