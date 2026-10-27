@@ -6,6 +6,7 @@ import csv
 import io
 import json
 import logging
+import math
 import secrets
 import threading
 import time
@@ -52,6 +53,7 @@ class JobManager:
         self.state = state
         self.pool = ThreadPoolExecutor(max_workers=state.config.job_workers, thread_name_prefix="job")
         self._cancel: dict[str, threading.Event] = {}
+        self._active_inputs: set[Path] = set()  # uploads still needed by queued or running jobs
         # Jobs interrupted by a restart cannot resume
         state.db.execute("UPDATE jobs SET status='failed', error='Interrupted by a server restart' "
                          "WHERE status IN ('queued','running')")
@@ -94,11 +96,13 @@ class JobManager:
     def submit(self, kind: str, inputs: list[Path], options: dict, identity_access: bool) -> str:
         jid = time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
         ts = now_iso()
-        safe_opts = {**options, "inputs": [p.name.split("__", 1)[-1] for p in inputs]}
+        safe_opts = {**options, "inputs": [p.name.split("__", 1)[-1] for p in inputs],
+                     "identity_access": bool(identity_access and (options.get("analysis") or {}).get("recognition"))}
         self.state.db.execute(
             "INSERT INTO jobs(id, kind, status, progress, options, created_at, updated_at) VALUES(?,?,?,?,?,?,?)",
             (jid, kind, "queued", 0.0, json.dumps(safe_opts), ts, ts))
         self._cancel[jid] = threading.Event()
+        self._active_inputs.update(inputs)
         fn = self._run_video if kind == "video" else self._run_batch
         self.pool.submit(self._wrap, fn, jid, inputs, options, identity_access)
         return jid
@@ -130,7 +134,12 @@ class JobManager:
         finally:
             for p in inputs:
                 p.unlink(missing_ok=True)
+                self._active_inputs.discard(p)
             self._cancel.pop(jid, None)
+
+    def active(self) -> tuple[set[str], set[Path]]:
+        """Ids of queued/running jobs and the upload files they still need (clear_cache must keep these)."""
+        return set(self._cancel), set(self._active_inputs)
 
     def _check(self, jid: str):
         ev = self._cancel.get(jid)
@@ -150,11 +159,14 @@ class JobManager:
         cap = cv2.VideoCapture(str(src))
         if not cap.isOpened():
             raise ValueError("Could not open the video. Supported: MP4, MOV, AVI, MKV, WebM (codec support depends on OpenCV).")
-        fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        fps = safe_fps(cap.get(cv2.CAP_PROP_FPS))
+        n_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        total = int(n_frames) if math.isfinite(n_frames) and n_frames > 0 else 0
         w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         out_dir = self.job_dir(jid)
-        writer, video_path = (open_video_writer(out_dir / "annotated", fps, (w, h)) if export_video else (None, None))
+        # The writer is opened on the first frame: decoded frames can differ from the container's reported size
+        # (rotation metadata), and VideoWriter silently drops frames of the wrong size.
+        writer, video_path = None, None
         session = LiveSession(self.state.analyzer)
         session.tracker.max_missed_seconds = max(1.0, 3 * sample_every / fps)
         events, samples = [], []
@@ -192,6 +204,9 @@ class JobManager:
                                     "faces": [{"track_id": f.get("track_id"), "box": f["box"], "score": f["score"],
                                                "recognition": (f.get("recognition") or {}).get("status")}
                                               for f in last["faces"]]})
+                if export_video and writer is None:
+                    w, h = frame.shape[1], frame.shape[0]
+                    writer, video_path = open_video_writer(out_dir / "annotated", fps, (w, h))
                 if writer is not None:
                     if anon:
                         out = anonymize(frame, [f["box"] for f in last["faces"]], anon.get("method", "blur"),
@@ -244,6 +259,7 @@ class JobManager:
         out_dir = self.job_dir(jid)
         zbuf = out_dir / "outputs.zip"
         rows, done = [], 0
+        used_names: set[str] = set()
         lock = threading.Lock()
         t0 = time.perf_counter()
 
@@ -268,7 +284,8 @@ class JobManager:
                     rows.append(row)
                     if data:
                         stem = Path(name).stem
-                        z.writestr(f"{stem}_{'anonymized' if mode == 'anonymize' else 'annotated'}.jpg", data)
+                        z.writestr(unique_name(f"{stem}_{'anonymized' if mode == 'anonymize' else 'annotated'}.jpg",
+                                               used_names), data)
                     done += 1
                     self._update(jid, progress=round(done / len(inputs), 4), message=f"{done} of {len(inputs)} files")
         elapsed = time.perf_counter() - t0
@@ -291,7 +308,8 @@ class JobManager:
                         "recognized_as", "most_common_expression"])
             for t in result["tracks"]:
                 w.writerow([t["track_id"], t["first_seen_s"], t["last_seen_s"], t["duration_s"], t["frames"],
-                            round(t["max_score"], 3), t.get("recognized_as", ""), t.get("most_common_expression", "")])
+                            round(t["max_score"], 3), csv_safe(t.get("recognized_as", "")),
+                            t.get("most_common_expression", "")])
             w.writerow([])
             w.writerow(["event", "track_id", "t_seconds", "frame"])
             for e in result["events"]:
@@ -299,7 +317,7 @@ class JobManager:
         else:
             w.writerow(["file", "faces", "processing_ms", "error"])
             for r in result["files"]:
-                w.writerow([r["file"], r.get("faces", ""), r.get("ms", ""), r.get("error", "")])
+                w.writerow([csv_safe(r["file"]), r.get("faces", ""), r.get("ms", ""), r.get("error", "")])
         (out_dir / "report.csv").write_text(buf.getvalue())
         s = result["summary"]
         lines = [f"FaceVision AI {kind} report", f"Created: {now_iso()}", ""]
@@ -312,7 +330,42 @@ class JobManager:
 
 def read_image_bytes(data: bytes) -> np.ndarray:
     arr = np.frombuffer(data, np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    try:
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    except cv2.error:  # e.g. above OPENCV_IO_MAX_IMAGE_PIXELS (see facevision/__init__.py)
+        img = None
     if img is None:
-        raise ValueError("The file is not a supported image (JPG, PNG, WebP or BMP).")
+        raise ValueError("The file is not a supported image (JPG, PNG, WebP or BMP up to 50 megapixels).")
     return img
+
+
+def safe_fps(value: float | None, default: float = 25.0) -> float:
+    """Containers often report 0, NaN or nonsense (e.g. 1000 for WebM from MediaRecorder) as the frame rate."""
+    try:
+        v = float(value or 0.0)
+    except (TypeError, ValueError):
+        return default
+    return v if math.isfinite(v) and 0.5 <= v <= 240.0 else default
+
+
+def unique_name(name: str, used: set[str]) -> str:
+    """Return name, or name with a numeric suffix, so that it is not in used; records the result in used."""
+    stem, dot, ext = name.rpartition(".")
+    if not dot:
+        stem, ext = name, ""
+    candidate, n = name, 1
+    while candidate.lower() in used:
+        n += 1
+        candidate = f"{stem}-{n}.{ext}" if dot else f"{stem}-{n}"
+    used.add(candidate.lower())
+    return candidate
+
+
+def csv_safe(value):
+    """Neutralise spreadsheet formulas in text cells (CSV injection); numbers are left as they are."""
+    if isinstance(value, str) and value[:1] in {"=", "+", "-", "@", "\t", "\r"}:
+        try:
+            float(value)
+        except ValueError:
+            return "'" + value
+    return value

@@ -69,6 +69,8 @@ class Database:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
+        # Overwrite deleted content with zeros, so deleted templates and names do not linger in free pages.
+        self._conn.execute("PRAGMA secure_delete=ON")
         self._conn.executescript(SCHEMA)
         try:
             path.chmod(0o600)
@@ -131,8 +133,10 @@ class Database:
         self.execute("INSERT INTO audit(at, action, detail) VALUES(?, ?, ?)", (now_iso(), action, detail))
 
     def vacuum(self) -> None:
+        """Compact the database and empty the write-ahead log, which can still hold copies of deleted rows."""
         with self._lock:
             self._conn.execute("VACUUM")
+            self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
     def close(self) -> None:
         with self._lock:

@@ -192,19 +192,23 @@ class Registry:
                         chunk = r.read(1 << 16)
                         if not chunk:
                             break
+                        state.bytes_done += len(chunk)
+                        if size and state.bytes_done > size + max(1 << 20, size // 100):
+                            # the manifest records the size; stop a mirror that sends far more (disk filling)
+                            raise ValueError(f"{url} sent more data than the expected {size} bytes")
                         out.write(chunk)
                         h.update(chunk)
-                        state.bytes_done += len(chunk)
                 state.status = "verifying"
                 if h.hexdigest() != expected_sha:
-                    tmp.unlink(missing_ok=True)
                     raise ValueError(f"checksum mismatch for {url}")
                 tmp.replace(dest)
                 state.status = "downloading"
                 return
             except InterruptedError:
+                tmp.unlink(missing_ok=True)
                 raise
             except Exception as e:  # try the next mirror
+                tmp.unlink(missing_ok=True)
                 log.warning("download failed from %s: %s", url, e)
                 errors.append(f"{url}: {e}")
         raise RuntimeError("; ".join(errors) or "no download URL")
@@ -249,13 +253,16 @@ class Registry:
     def install_local(self, model_id: str, source_dir: Path) -> None:
         """Install from files already on disk (offline installs, CI caches). Checksums are still verified."""
         m = self.models[model_id]
+        for f in m["files"]:  # verify everything first, so a bad file cannot leave a half-replaced install
+            src = source_dir / f["name"]
+            if not src.is_file():
+                raise ValueError(f"{src} is missing")
+            if sha256_file(src) != f["sha256"]:
+                raise ValueError(f"checksum mismatch for {src}")
         target = self.model_dir(model_id)
         target.mkdir(parents=True, exist_ok=True)
         for f in m["files"]:
-            src = source_dir / f["name"]
-            if sha256_file(src) != f["sha256"]:
-                raise ValueError(f"checksum mismatch for {src}")
-            shutil.copyfile(src, target / f["name"])
+            shutil.copyfile(source_dir / f["name"], target / f["name"])
         self._changed(model_id)
 
     def _changed(self, model_id: str) -> None:
