@@ -12,7 +12,7 @@ import threading
 import time
 import zipfile
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -36,6 +36,18 @@ class Cancelled(Exception):
     pass
 
 
+def job_identity_access(options: dict | None) -> bool:
+    """Whether a job's reports may contain enrolled names, so that they need a signed-in session.
+
+    Jobs stored by this version carry an explicit `identity_access` flag. Jobs from older versions do not, so they are
+    treated conservatively: protected whenever their stored analysis options (including preset defaults) could have
+    switched recognition on."""
+    options = options or {}
+    if "identity_access" in options:
+        return bool(options["identity_access"])
+    return Options.from_dict(options.get("analysis")).recognition
+
+
 def open_video_writer(path_base: Path, fps: float, size: tuple[int, int]) -> tuple[cv2.VideoWriter, Path]:
     """WebM/VP8 plays in browsers; fall back to MPEG-4 when VP8 is unavailable."""
     for fourcc, ext in (("VP80", ".webm"), ("mp4v", ".mp4")):
@@ -54,6 +66,9 @@ class JobManager:
         self.pool = ThreadPoolExecutor(max_workers=state.config.job_workers, thread_name_prefix="job")
         self._cancel: dict[str, threading.Event] = {}
         self._active_inputs: set[Path] = set()  # uploads still needed by queued or running jobs
+        self._futures: dict[str, Future] = {}
+        # Shared by upload/job registration and cache pruning, so pruning never sees a half-registered job.
+        self.lock = threading.RLock()
         # Jobs interrupted by a restart cannot resume
         state.db.execute("UPDATE jobs SET status='failed', error='Interrupted by a server restart' "
                          "WHERE status IN ('queued','running')")
@@ -96,16 +111,38 @@ class JobManager:
     def submit(self, kind: str, inputs: list[Path], options: dict, identity_access: bool) -> str:
         jid = time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
         ts = now_iso()
+        # Same resolved recognition setting as the workers use (presets enable it when it is omitted or null).
+        wants_recognition = Options.from_dict(options.get("analysis")).recognition
         safe_opts = {**options, "inputs": [p.name.split("__", 1)[-1] for p in inputs],
-                     "identity_access": bool(identity_access and (options.get("analysis") or {}).get("recognition"))}
-        self.state.db.execute(
-            "INSERT INTO jobs(id, kind, status, progress, options, created_at, updated_at) VALUES(?,?,?,?,?,?,?)",
-            (jid, kind, "queued", 0.0, json.dumps(safe_opts), ts, ts))
-        self._cancel[jid] = threading.Event()
-        self._active_inputs.update(inputs)
+                     "identity_access": bool(identity_access and wants_recognition)}
         fn = self._run_video if kind == "video" else self._run_batch
-        self.pool.submit(self._wrap, fn, jid, inputs, options, identity_access)
+        with self.lock:
+            self.state.db.execute(
+                "INSERT INTO jobs(id, kind, status, progress, options, created_at, updated_at) VALUES(?,?,?,?,?,?,?)",
+                (jid, kind, "queued", 0.0, json.dumps(safe_opts), ts, ts))
+            self._cancel[jid] = threading.Event()
+            self._active_inputs.update(inputs)
+            self._futures[jid] = self.pool.submit(self._wrap, fn, jid, inputs, options, identity_access)
         return jid
+
+    def reserve_upload(self, path: Path) -> None:
+        """Mark an upload as in use from the moment it is created, before any job owns it."""
+        with self.lock:
+            self._active_inputs.add(path)
+
+    def release_upload(self, path: Path) -> None:
+        with self.lock:
+            self._active_inputs.discard(path)
+
+    def stop_all(self, timeout: float = 120.0) -> None:
+        """Cancel every queued or running job and wait until its worker has finished."""
+        with self.lock:
+            for ev in self._cancel.values():
+                ev.set()
+            pending = list(self._futures.values())
+        _, not_done = wait(pending, timeout=timeout)
+        if not_done:
+            raise TimeoutError("Jobs are still stopping.")
 
     def cancel(self, jid: str) -> None:
         self._row(jid)
@@ -134,12 +171,15 @@ class JobManager:
         finally:
             for p in inputs:
                 p.unlink(missing_ok=True)
-                self._active_inputs.discard(p)
-            self._cancel.pop(jid, None)
+            with self.lock:
+                self._active_inputs.difference_update(inputs)
+                self._cancel.pop(jid, None)
+                self._futures.pop(jid, None)
 
     def active(self) -> tuple[set[str], set[Path]]:
         """Ids of queued/running jobs and the upload files they still need (clear_cache must keep these)."""
-        return set(self._cancel), set(self._active_inputs)
+        with self.lock:
+            return set(self._cancel), set(self._active_inputs)
 
     def _check(self, jid: str):
         ev = self._cancel.get(jid)
@@ -266,7 +306,10 @@ class JobManager:
         def work(path: Path):
             self._check(jid)
             name = path.name.split("__", 1)[-1]
-            img = cv2.imread(str(path), cv2.IMREAD_COLOR)
+            try:
+                img = cv2.imread(str(path), cv2.IMREAD_COLOR)
+            except cv2.error:  # e.g. above OPENCV_IO_MAX_IMAGE_PIXELS (see facevision/__init__.py)
+                img = None
             if img is None:
                 return name, {"file": name, "error": "Not a readable image"}, None
             res = self.state.analyzer.analyze_image(img, opts if mode == "analyze" else Options.from_dict(

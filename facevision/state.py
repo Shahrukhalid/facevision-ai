@@ -152,17 +152,24 @@ class AppState:
                 pass
         return removed
 
-    def clear_cache(self) -> dict:
-        """Delete job outputs and temporary uploads, except those of jobs that are still queued or running."""
+    def clear_cache(self, everything: bool = False) -> dict:
+        """Delete job outputs and temporary uploads, except those of jobs that are still queued or running.
+
+        everything=True (factory reset) first stops all jobs and waits for their workers, then deletes it all."""
+        if everything:
+            self.jobs.stop_all()
         n_files = 0
-        active_jobs, active_inputs = self.jobs.active()
-        for d in (self.config.outputs_dir, self.config.uploads_dir):
-            for p in list(d.iterdir()):
-                if p.name in active_jobs or p in active_inputs:
-                    continue
-                shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
-                n_files += 1
-        self.db.execute("DELETE FROM jobs WHERE status NOT IN ('queued', 'running')")
+        # Registration of uploads and jobs takes the same lock, so nothing can be registered between the snapshot
+        # of active work and the directory listing.
+        with self.jobs.lock:
+            active_jobs, active_inputs = (set(), set()) if everything else self.jobs.active()
+            for d in (self.config.outputs_dir, self.config.uploads_dir):
+                for p in list(d.iterdir()):
+                    if p.name in active_jobs or p in active_inputs:
+                        continue
+                    shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
+                    n_files += 1
+            self.db.execute("DELETE FROM jobs WHERE status NOT IN ('queued', 'running')")
         self.db.audit("data.cache_cleared", f"items={n_files}")
         return {"removed": n_files}
 
