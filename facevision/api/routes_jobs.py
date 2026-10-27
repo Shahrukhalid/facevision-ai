@@ -15,6 +15,19 @@ MEDIA = {".json": "application/json", ".csv": "text/csv", ".txt": "text/plain", 
          ".webm": "video/webm", ".mp4": "video/mp4"}
 
 
+def _job(request: Request, jid: str) -> dict:
+    """Look up a job. Jobs that recognised enrolled people contain names, so they need a signed-in session or
+    API key, like the other biometric endpoints."""
+    st = state(request)
+    try:
+        job = st.jobs.get(jid)
+    except KeyError:
+        raise HTTPException(404, "Job not found")
+    if (job.get("options") or {}).get("identity_access") and not is_signed_in(request):
+        raise HTTPException(401, "This job recognised enrolled faces. Sign in to see it.")
+    return job
+
+
 @router.get("")
 def list_jobs(request: Request):
     return state(request).jobs.list()
@@ -60,15 +73,13 @@ async def batch_job(request: Request, files: list[UploadFile] = File(...), optio
 
 @router.get("/{jid}")
 def get_job(jid: str, request: Request):
-    try:
-        return state(request).jobs.get(jid)
-    except KeyError:
-        raise HTTPException(404, "Job not found")
+    return _job(request, jid)
 
 
 @router.post("/{jid}/cancel")
 def cancel_job(jid: str, request: Request):
     st = state(request)
+    _job(request, jid)
     try:
         st.jobs.cancel(jid)
     except KeyError:
@@ -78,6 +89,7 @@ def cancel_job(jid: str, request: Request):
 
 @router.delete("/{jid}")
 def delete_job(jid: str, request: Request):
+    _job(request, jid)
     try:
         state(request).jobs.delete(jid)
     except KeyError:
@@ -90,10 +102,7 @@ def delete_job(jid: str, request: Request):
 @router.get("/{jid}/files/{name}")
 def job_file(jid: str, name: str, request: Request, download: bool = False):
     st = state(request)
-    try:
-        job = st.jobs.get(jid)
-    except KeyError:
-        raise HTTPException(404, "Job not found")
+    job = _job(request, jid)
     allowed = set((job.get("outputs") or {}).values())
     if name not in allowed:
         raise HTTPException(404, "File not found")

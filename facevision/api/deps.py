@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import re
 import secrets
 from pathlib import Path
 
 from fastapi import HTTPException, Request, UploadFile
 
+from .. import MAX_IMAGE_PIXELS
 from ..jobs import read_image_bytes
 from ..state import AppState
 
@@ -85,14 +87,21 @@ async def read_image(request: Request, file: UploadFile):
     except ValueError as e:
         raise HTTPException(415, str(e))
     h, w = img.shape[:2]
-    if h * w > 50_000_000:
+    if h * w > MAX_IMAGE_PIXELS:
         raise HTTPException(413, "Images above 50 megapixels are not supported.")
     return img
 
 
+def safe_filename(filename: str | None, default: str = "upload") -> str:
+    """Base name only (either slash style), without control or reserved characters, at most 120 characters."""
+    name = re.split(r"[\\/]", filename or "")[-1]
+    name = re.sub(r"[^\w.\- ()+,]", "_", name).strip(" .")
+    return name[-120:] or default
+
+
 async def save_upload(request: Request, file: UploadFile, max_mb: int, allowed_ext: set[str]) -> Path:
     st = state(request)
-    name = Path(file.filename or "upload").name
+    name = safe_filename(file.filename)
     ext = Path(name).suffix.lower()
     if ext not in allowed_ext:
         raise HTTPException(415, f"{name}: unsupported file type. Allowed: {', '.join(sorted(allowed_ext))}")
