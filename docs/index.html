@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FaceVision AI: Offline Face Recognition, Detection and Face Blur</title>
+<meta name="description" content="Open-source, offline face recognition, face detection and face blur app for macOS, Windows and Linux. Consent-based and privacy-first, runs locally with open ONNX models.">
+<meta name="keywords" content="face recognition, face detection, face blur, face anonymization, offline, privacy, liveness detection, ONNX, OpenCV, MediaPipe, FastAPI, React">
+<meta name="author" content="Shahrukh Khalid">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0b6e99">
+<link rel="canonical" href="https://shahrukhalid.github.io/facevision-ai/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FaceVision AI">
+<meta property="og:title" content="FaceVision AI: Offline Face Recognition, Detection and Face Blur">
+<meta property="og:description" content="Open-source, offline face recognition, face detection and face blur app for macOS, Windows and Linux. Consent-based and privacy-first, runs locally with open ONNX models.">
+<meta property="og:url" content="https://shahrukhalid.github.io/facevision-ai/">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="FaceVision AI: Offline Face Recognition, Detection and Face Blur">
+<meta name="twitter:description" content="Open-source, offline face recognition, face detection and face blur app for macOS, Windows and Linux. Consent-based and privacy-first, runs locally with open ONNX models.">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "FaceVision AI", "url": "https://shahrukhalid.github.io/facevision-ai/", "description": "Open-source, offline face recognition, face detection and face blur app for macOS, Windows and Linux. Consent-based and privacy-first, runs locally with open ONNX models.", "applicationCategory": "MultimediaApplication", "operatingSystem": "macOS, Windows, Linux", "programmingLanguage": "Python", "license": "https://github.com/Shahrukhalid/facevision-ai/blob/main/LICENSE", "codeRepository": "https://github.com/Shahrukhalid/facevision-ai", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Shahrukh Khalid", "url": "https://github.com/Shahrukhalid"}}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does FaceVision AI work offline?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. After setup it runs on your own computer with open models and works offline. It never uploads faces anywhere, and a test fails the build if analysis makes any network connection."}}, {"@type": "Question", "name": "Is face recognition consent-based?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Enrolment requires confirming the person's informed consent, and recognition only compares against people enrolled locally. It never searches the internet or other databases."}}, {"@type": "Question", "name": "Can it blur faces in photos and videos?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The privacy toolkit blurs, pixelates or masks faces in photos and videos, with per-face selection, without any recognition."}}, {"@type": "Question", "name": "Which systems does it run on?", "acceptedAnswer": {"@type": "Answer", "text": "macOS (Apple Silicon), Windows 10/11 and Linux, with Python 3.10 to 3.13."}}, {"@type": "Question", "name": "How accurate is recognition?", "acceptedAnswer": {"@type": "Answer", "text": "On the AT&T Database of Faces (40 consenting volunteers, 400 images), SFace at the default threshold produced 0 false non-matches in 1,800 genuine pairs and 0.17% false matches in 78,000 impostor pairs. This is a small, controlled dataset, so expect lower accuracy on everyday photos."}}, {"@type": "Question", "name": "What licence does it use?", "acceptedAnswer": {"@type": "Answer", "text": "The code is MIT licensed. Models keep their own licences; the optional InsightFace pack is non-commercial research only and is opt-in."}}, {"@type": "Question", "name": "Should I use it for surveillance?", "acceptedAnswer": {"@type": "Answer", "text": "No. Do not use it for covert surveillance, and check the laws that apply to biometric data where you live."}}]}</script>
+<style>
+:root{--bg:#fff;--fg:#1b1f24;--mut:#57606a;--card:#f6f8fa;--bd:#d0d7de;--ac:#0b6e99;--acfg:#fff;--link:#0b6e99}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--mut:#9da7b3;--card:#161b22;--bd:#30363d;--ac:#4cc9e8;--acfg:#0d1117;--link:#4cc9e8}}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--link)}a:focus-visible,summary:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+.skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px;background:var(--bg);padding:8px;z-index:9}
+.wrap{max-width:60rem;margin:0 auto;padding:0 16px}
+header.top{border-bottom:1px solid var(--bd)}header.top .wrap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;padding-top:12px;padding-bottom:12px}
+header.top strong{margin-right:auto}nav a{margin-right:14px;text-decoration:none}
+.hero{padding:48px 0 24px}h1{font-size:clamp(1.8rem,5vw,2.75rem);line-height:1.15;margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--mut);margin:0 0 20px}
+.btn{display:inline-block;padding:10px 18px;border-radius:8px;background:var(--ac);color:var(--acfg);font-weight:600;text-decoration:none;margin:0 8px 8px 0}
+.btn.alt{background:transparent;color:var(--link);border:1px solid var(--bd)}
+h2{margin:40px 0 12px;font-size:1.5rem}h3{margin:0 0 6px;font-size:1.05rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px 16px}.card p{margin:0;color:var(--mut)}
+.notice{border-left:4px solid var(--ac);background:var(--card);padding:12px 16px;border-radius:6px;margin:16px 0}
+pre{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:12px;overflow-x:auto;font-size:.9rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+img{max-width:100%;height:auto;border-radius:8px;border:1px solid var(--bd)}
+details{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;margin:8px 0}summary{cursor:pointer;font-weight:600}details p{margin:8px 0 0}
+ul.l{padding-left:1.2rem}ul.plain{list-style:none;padding:0;margin:0}ul.plain li{margin:6px 0}
+footer{border-top:1px solid var(--bd);margin-top:48px;padding:24px 0 40px;color:var(--mut);font-size:.95rem}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top"><div class="wrap"><strong>FaceVision AI</strong><nav aria-label="Main"><a href="#features">Features</a><a href="#quick-start">Quick start</a><a href="#faq">FAQ</a><a href="https://github.com/Shahrukhalid/facevision-ai">GitHub</a></nav></div></header>
+<main id="main"><div class="wrap">
+<section class="hero"><h1>Offline face recognition, face detection and face blur app</h1><p class="lead">Local, consent-based face detection, analysis, recognition and anonymisation.</p><p>
+<a class="btn" href="#quick-start">Quick start</a><a class="btn alt" href="https://github.com/Shahrukhalid/facevision-ai">View on GitHub</a>
+<a class="btn alt" href="https://github.com/Shahrukhalid/facevision-ai/releases">Releases</a></p></section>
+<section aria-labelledby="what"><h2 id="what">What it is</h2>
+<p>FaceVision AI runs on your own computer with open models and works offline after setup. It never uploads faces anywhere. It is a FastAPI and React application with a modular computer-vision engine.</p>
+<p>It detects and tracks faces in a webcam, photo, video or RTSP stream, measures landmarks, head pose, blinks, smiles and image quality, and can recognise people only if they were enrolled on your computer with their consent. A privacy toolkit blurs, pixelates or masks faces without any recognition at all.</p>
+<p><img src="images/live.webp" alt="Live view of FaceVision AI with faces blurred by the privacy mode" width="800" loading="lazy"></p>
+</section>
+<section aria-labelledby="features"><h2 id="features">Features</h2><div class="grid">
+<div class="card"><h3>Face detection and tracking</h3><p>Multiple faces, adjustable threshold, face count, FPS and latency, with temporary track IDs and enter/exit events.</p></div>
+<div class="card"><h3>Landmarks and analysis</h3><p>478-point face mesh, head pose, eye state and blinks, smile, image quality and occlusion indicators.</p></div>
+<div class="card"><h3>Consent-based recognition</h3><p>Consented enrolment, encrypted templates, 1:1 verification and 1:N matching, with Unknown for non-matches.</p></div>
+<div class="card"><h3>Face blur and anonymisation</h3><p>Blur, pixelate or solid-mask faces in photos and video, with per-face selection and preview. No recognition needed.</p></div>
+<div class="card"><h3>Liveness checks</h3><p>Random blink, turn and smile challenges plus passive photo/screen detection, with stated limits.</p></div>
+<div class="card"><h3>Photos, videos and batches</h3><p>Annotated exports, entry/exit logs, background jobs with progress and cancellation, JSON/CSV/TXT reports.</p></div>
+<div class="card"><h3>REST API and WebSocket</h3><p>A documented local API alongside the app, with interactive docs at /api/docs.</p></div>
+<div class="card"><h3>Desktop package</h3><p>A PyInstaller app bundle is built and smoke-tested in CI.</p></div>
+</div></section>
+<section aria-labelledby="privacy"><h2 id="privacy">Privacy and safety</h2><ul class="l">
+<li>Everything stays on your computer: no cloud APIs, no accounts, no analytics.</li>
+<li>Enrolment requires confirming the person&#x27;s informed consent.</li>
+<li>Face templates are encrypted with AES-256-GCM; enrolment photos are not kept.</li>
+<li>The camera starts only when you press Start, with a visible indicator.</li>
+<li>The server listens on 127.0.0.1 and rejects other hosts.</li>
+<li>No race, ethnicity, religion, health or similar inferences.</li>
+</ul></section>
+<section aria-labelledby="quick-start"><h2 id="quick-start">Quick start</h2>
+<p>Requirements: Python 3.10 to 3.13, Node.js 20+ and about 1 GB of disk space.</p>
+<h3>macOS / Linux</h3><pre><code>git clone https://github.com/Shahrukhalid/facevision-ai.git
+cd facevision-ai
+bash scripts/setup.sh
+bash scripts/start.sh   # opens http://localhost:8600</code></pre>
+<h3>Windows (PowerShell)</h3><pre><code>git clone https://github.com/Shahrukhalid/facevision-ai.git
+cd facevision-ai
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+powershell -ExecutionPolicy Bypass -File scripts\start.ps1</code></pre>
+<p>Setup builds the web app and downloads the default models (about 80 MB, checksum-verified).</p></section>
+<section aria-labelledby="docs"><h2 id="docs">Documentation</h2><ul class="l">
+<li><a href="https://github.com/Shahrukhalid/facevision-ai/blob/main/docs/INSTALL-macOS.md">Install on macOS</a></li>
+<li><a href="https://github.com/Shahrukhalid/facevision-ai/blob/main/docs/INSTALL-Windows.md">Install on Windows</a></li>
+<li><a href="https://github.com/Shahrukhalid/facevision-ai/blob/main/docs/FEATURES.md">Features and test status</a></li>
+<li><a href="https://github.com/Shahrukhalid/facevision-ai/blob/main/docs/API.md">API reference</a></li>
+<li><a href="https://github.com/Shahrukhalid/facevision-ai/blob/main/docs/MODELS.md">Models and licences</a></li>
+<li><a href="https://github.com/Shahrukhalid/facevision-ai/blob/main/docs/PRIVACY.md">Privacy</a></li>
+<li><a href="https://github.com/Shahrukhalid/facevision-ai/blob/main/docs/LIVENESS.md">Liveness limitations</a></li>
+<li><a href="https://github.com/Shahrukhalid/facevision-ai/blob/main/docs/EVALUATION.md">Evaluation</a></li>
+<li><a href="https://github.com/Shahrukhalid/facevision-ai/blob/main/docs/BENCHMARKS.md">Benchmarks</a></li>
+<li><a href="https://github.com/Shahrukhalid/facevision-ai/blob/main/docs/TROUBLESHOOTING.md">Troubleshooting</a></li>
+</ul></section>
+<section aria-labelledby="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>Does FaceVision AI work offline?</summary><p>Yes. After setup it runs on your own computer with open models and works offline. It never uploads faces anywhere, and a test fails the build if analysis makes any network connection.</p></details>
+<details><summary>Is face recognition consent-based?</summary><p>Yes. Enrolment requires confirming the person&#x27;s informed consent, and recognition only compares against people enrolled locally. It never searches the internet or other databases.</p></details>
+<details><summary>Can it blur faces in photos and videos?</summary><p>Yes. The privacy toolkit blurs, pixelates or masks faces in photos and videos, with per-face selection, without any recognition.</p></details>
+<details><summary>Which systems does it run on?</summary><p>macOS (Apple Silicon), Windows 10/11 and Linux, with Python 3.10 to 3.13.</p></details>
+<details><summary>How accurate is recognition?</summary><p>On the AT&amp;T Database of Faces (40 consenting volunteers, 400 images), SFace at the default threshold produced 0 false non-matches in 1,800 genuine pairs and 0.17% false matches in 78,000 impostor pairs. This is a small, controlled dataset, so expect lower accuracy on everyday photos.</p></details>
+<details><summary>What licence does it use?</summary><p>The code is MIT licensed. Models keep their own licences; the optional InsightFace pack is non-commercial research only and is opt-in.</p></details>
+<details><summary>Should I use it for surveillance?</summary><p>No. Do not use it for covert surveillance, and check the laws that apply to biometric data where you live.</p></details>
+</section>
+<section aria-labelledby="links"><h2 id="links">Project links</h2><ul class="plain">
+<li><a href="https://github.com/Shahrukhalid/facevision-ai">Source code on GitHub</a></li><li><a href="https://github.com/Shahrukhalid/facevision-ai/releases">Releases</a></li><li><a href="https://github.com/Shahrukhalid/facevision-ai/issues">Issues and feature requests</a></li>
+</ul></section>
+<section aria-labelledby="more"><h2 id="more">More projects by Shahrukh Khalid</h2><div class="grid">
+<div class="card"><h3><a href="https://github.com/Shahrukhalid/stark-os">stark-os</a></h3><p>Self-hosted multi-agent social media manager; every post needs your approval.</p></div>
+<div class="card"><h3><a href="https://github.com/Shahrukhalid/verilive">verilive</a></h3><p>In-browser deepfake check for video calls; video never leaves your device.</p></div>
+<div class="card"><h3><a href="https://github.com/Shahrukhalid/nexonic-iptv">nexonic-iptv</a></h3><p>Free IPTV M3U playlists of legal, officially free live TV channels.</p></div>
+<div class="card"><h3><a href="https://github.com/Shahrukhalid/nexonic-iptv-v2">nexonic-iptv-v2</a></h3><p>Self-hosted IPTV player and Xtream Codes server for free, legal TV.</p></div>
+<div class="card"><h3><a href="https://github.com/Shahrukhalid/nexonic-sentinel">nexonic-sentinel</a></h3><p>Free GitHub App that triages issues, reviews PRs and merges safe dependency updates.</p></div>
+<div class="card"><h3><a href="https://github.com/Shahrukhalid/morphlive">morphlive</a></h3><p>Experimental local camera and voice-effects prototype (goal not achieved).</p></div>
+</div></section></div></main>
+<footer><div class="wrap"><p>Face recognition can harm people when used without their knowledge. FaceVision AI is built for consent-based, local use.</p><p>By <a href="https://github.com/Shahrukhalid">Shahrukh Khalid</a>. <a href="https://github.com/Shahrukhalid/facevision-ai">Source on GitHub</a>.</p></div></footer>
+</body>
+</html>
