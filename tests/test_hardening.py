@@ -135,3 +135,96 @@ def test_helpers():
     assert safe_filename("..\\..\\evil.mp4") == "evil.mp4"
     assert safe_filename("../x/clip\x00.mp4") == "clip_.mp4"
     assert safe_filename("") == "upload" and len(safe_filename("a" * 500 + ".jpg")) == 120
+
+
+def test_legacy_jobs_without_flag_are_protected(client):
+    st = client.fv
+    client.post("/api/auth/setup", json={"passphrase": PASS})
+    ts = now_iso()
+    for jid, opts in (("legacy-default", {}), ("legacy-balanced-null", {"analysis": {"recognition": None}}),
+                      ("legacy-explicit", {"analysis": {"recognition": True}}),
+                      ("legacy-fast", {"analysis": {"preset": "fast"}})):
+        st.db.execute("INSERT INTO jobs(id, kind, status, progress, options, outputs, created_at, updated_at) "
+                      "VALUES(?,?,?,?,?,?,?,?)",
+                      (jid, "batch", "done", 1.0, json.dumps(opts), json.dumps({"json": "report.json"}), ts, ts))
+    client.cookies.clear()
+    assert client.get("/api/jobs/legacy-default").status_code == 401  # balanced preset recognises by default
+    assert client.get("/api/jobs/legacy-balanced-null").status_code == 401
+    assert client.get("/api/jobs/legacy-explicit").status_code == 401
+    assert client.get("/api/jobs/legacy-fast").status_code == 200  # recognition cannot have been on
+
+
+def test_submit_derives_identity_access_from_resolved_options(state, tmp_path, monkeypatch):
+    monkeypatch.setattr(state.jobs.pool, "submit", lambda *a, **k: None)
+    f = tmp_path / "a__x.jpg"
+    f.write_bytes(b"x")
+    flags = {}
+    for label, analysis in (("omitted", None), ("null", {"recognition": None}), ("fast", {"preset": "fast"}),
+                            ("fast-on", {"preset": "fast", "recognition": True})):
+        jid = state.jobs.submit("batch", [f], {"analysis": analysis} if analysis is not None else {}, True)
+        flags[label] = state.jobs.get(jid)["options"]["identity_access"]
+    assert flags == {"omitted": True, "null": True, "fast": False, "fast-on": True}
+    jid = state.jobs.submit("batch", [f], {}, False)
+    assert state.jobs.get(jid)["options"]["identity_access"] is False
+
+
+def test_batch_records_decoder_errors_per_file(state, tmp_path, monkeypatch):
+    import cv2
+
+    from facevision import jobs as jobs_mod
+
+    def boom(*a, **k):
+        raise cv2.error("image too large")
+
+    monkeypatch.setattr(jobs_mod.cv2, "imread", boom)
+    f = tmp_path / "a__huge.png"
+    f.write_bytes(b"x")
+    result, _ = state.jobs._run_batch("j-huge", [f], {}, False)
+    assert result["summary"]["failed"] == 1 and result["summary"]["succeeded"] == 0
+    assert result["files"][0]["error"] == "Not a readable image"
+
+
+def test_clear_cache_waits_for_upload_registration(state):
+    started, finished = threading.Event(), threading.Event()
+
+    def clear():
+        started.set()
+        state.clear_cache()
+        finished.set()
+
+    upload = state.config.uploads_dir / "new__clip.mp4"
+    with state.jobs.lock:  # a submission is in the middle of registering
+        t = threading.Thread(target=clear)
+        t.start()
+        started.wait(5)
+        assert not finished.wait(0.3)  # pruning cannot take its snapshot yet
+        state.jobs.reserve_upload(upload)
+        upload.write_bytes(b"x")
+    t.join(10)
+    assert finished.is_set() and upload.is_file()
+
+
+def test_factory_reset_stops_workers_before_deleting_files(client):
+    st = client.fv
+    client.post("/api/auth/setup", json={"passphrase": PASS})
+    started = threading.Event()
+    out = st.config.outputs_dir / "busy-job"
+
+    def slow_run(jid, inputs, options, identity_access):
+        out.mkdir(parents=True, exist_ok=True)
+        started.set()
+        while True:
+            st.jobs._check(jid)
+            threading.Event().wait(0.01)
+            (out / "late.json").write_text("{}")
+
+    st.jobs._run_batch = slow_run
+    f = st.config.uploads_dir / "z__a.jpg"
+    f.write_bytes(b"x")
+    st.jobs.submit("batch", [f], {}, True)
+    assert started.wait(5)
+    r = client.post("/api/data/delete-all", json={"confirm": "DELETE EVERYTHING"})
+    assert r.status_code == 200, r.text
+    assert not out.exists() and not f.exists()
+    assert st.jobs.active() == (set(), set())
+    assert st.db.one("SELECT COUNT(*) AS n FROM jobs")["n"] == 0
