@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
-from ..jobs import IMAGE_EXTS, VIDEO_EXTS
+from ..jobs import IMAGE_EXTS, VIDEO_EXTS, job_identity_access
 from .deps import is_signed_in, parse_json_field, rate_limit, save_upload, state
 
 router = APIRouter(prefix="/api/jobs")
@@ -23,7 +23,7 @@ def _job(request: Request, jid: str) -> dict:
         job = st.jobs.get(jid)
     except KeyError:
         raise HTTPException(404, "Job not found")
-    if (job.get("options") or {}).get("identity_access") and not is_signed_in(request):
+    if job_identity_access(job.get("options")) and not is_signed_in(request):
         raise HTTPException(401, "This job recognised enrolled faces. Sign in to see it.")
     return job
 
@@ -41,7 +41,12 @@ async def video_job(request: Request, file: UploadFile = File(...), options: str
     if (opts.get("analysis") or {}).get("recognition") and not is_signed_in(request):
         raise HTTPException(401, "Sign in to recognise enrolled faces in videos.")
     path = await save_upload(request, file, st.config.max_video_mb, VIDEO_EXTS)
-    jid = st.jobs.submit("video", [path], opts, is_signed_in(request))
+    try:
+        jid = st.jobs.submit("video", [path], opts, is_signed_in(request))
+    except BaseException:
+        path.unlink(missing_ok=True)
+        st.jobs.release_upload(path)
+        raise
     return st.jobs.get(jid)
 
 
@@ -63,11 +68,12 @@ async def batch_job(request: Request, files: list[UploadFile] = File(...), optio
             total_mb += p.stat().st_size / 1e6
             if total_mb > st.config.max_image_mb * 25:
                 raise HTTPException(413, f"A batch can hold at most {st.config.max_image_mb * 25} MB.")
-    except HTTPException:
+        jid = st.jobs.submit("batch", paths, opts, is_signed_in(request))
+    except BaseException:
         for p in paths:
             p.unlink(missing_ok=True)
+            st.jobs.release_upload(p)
         raise
-    jid = st.jobs.submit("batch", paths, opts, is_signed_in(request))
     return st.jobs.get(jid)
 
 

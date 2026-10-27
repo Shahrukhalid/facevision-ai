@@ -107,20 +107,24 @@ async def save_upload(request: Request, file: UploadFile, max_mb: int, allowed_e
         raise HTTPException(415, f"{name}: unsupported file type. Allowed: {', '.join(sorted(allowed_ext))}")
     dest = st.config.uploads_dir / f"{secrets.token_hex(8)}__{name}"
     limit, size = max_mb * 1024 * 1024, 0
-    with open(dest, "wb") as out:
-        while True:
-            chunk = await file.read(1 << 20)
-            if not chunk:
-                break
-            size += len(chunk)
-            if size > limit:
-                out.close()
-                dest.unlink(missing_ok=True)
-                raise HTTPException(413, f"{name} is larger than the {max_mb} MB limit.")
-            out.write(chunk)
-    if size == 0:
+    # Registered before the file exists, so cache clearing cannot delete it before a job takes it over.
+    st.jobs.reserve_upload(dest)
+    try:
+        with open(dest, "wb") as out:
+            while True:
+                chunk = await file.read(1 << 20)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > limit:
+                    raise HTTPException(413, f"{name} is larger than the {max_mb} MB limit.")
+                out.write(chunk)
+        if size == 0:
+            raise HTTPException(400, f"{name} is empty.")
+    except BaseException:
         dest.unlink(missing_ok=True)
-        raise HTTPException(400, f"{name} is empty.")
+        st.jobs.release_upload(dest)
+        raise
     return dest
 
 
