@@ -37,9 +37,11 @@ export async function dataUrlToBlob(url: string) {
 
 export const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 
-const csvCell = (v: unknown) => {
-  const s = v === undefined || v === null ? '' : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+export const csvCell = (v: unknown) => {
+  let s = v === undefined || v === null ? '' : String(v);
+  // Spreadsheet formula injection: text such as a file or person name starting with = + - @ is prefixed with '
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s) && !Number.isFinite(Number(s))) s = `'${s}`;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
 /** One row per face, with the main estimates and their uncertainty indicators. */

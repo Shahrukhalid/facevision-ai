@@ -302,7 +302,9 @@ async def anonymize_image(request: Request, file: UploadFile = File(...), method
 # ------------------------------------------------------------------ liveness
 @router.post("/liveness/sessions")
 def new_liveness(request: Request):
-    for sid in [k for k, s in _liveness.items() if time.time() - s.created > 120]:
+    rate_limit(request, "liveness_new", 60, 20)
+    # list() first: other requests add sessions from worker threads while this one iterates
+    for sid in [k for k, s in list(_liveness.items()) if time.time() - s.created > 120]:
         _liveness.pop(sid, None)
     s = L.new_session()
     _liveness[s.id] = s
@@ -341,8 +343,8 @@ async def liveness_frame(sid: str, request: Request, file: UploadFile = File(...
 async def passive_liveness(request: Request, file: UploadFile = File(...)):
     rate_limit(request, "infer", 600, 60)
     img = await read_image(request, file)
-    res = _run(request, img, Options.from_dict({"preset": "fast", "antispoof": True}))
     if state(request).hub.antispoof() is None:
         raise HTTPException(503, "The anti-spoofing models are not installed. Install them in the Model Manager.")
+    res = _run(request, img, Options.from_dict({"preset": "fast", "antispoof": True}))
     return {"faces": [{"index": f["index"], "box": f["box"], **f["analysis"]["antispoof"]} for f in res["faces"]],
             "note": "A single-image check can be fooled. Use it as one signal alongside the active challenge."}

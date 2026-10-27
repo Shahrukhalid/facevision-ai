@@ -16,9 +16,11 @@ class IdentityStore:
         self.vault = vault
         self._cache: dict[str, tuple[np.ndarray, np.ndarray]] = {}  # model_id -> (embeddings, person_ids)
         self._lock = threading.Lock()
+        self._generation = 0  # bumped on every change, so a gallery read that raced with a change is not cached
 
     def invalidate(self):
         with self._lock:
+            self._generation += 1
             self._cache.clear()
 
     # ---------- people
@@ -108,6 +110,7 @@ class IdentityStore:
         with self._lock:
             if model_id in self._cache:
                 return self._cache[model_id]
+            generation = self._generation
         rows = self.db.query("SELECT person_id, dim, nonce, ciphertext FROM templates WHERE model_id=?", (model_id,))
         embs, pids = [], []
         for r in rows:
@@ -116,7 +119,8 @@ class IdentityStore:
             pids.append(r["person_id"])
         result = (np.stack(embs) if embs else np.zeros((0, 1), np.float32), np.array(pids, np.int64))
         with self._lock:
-            self._cache[model_id] = result
+            if self._generation == generation:
+                self._cache[model_id] = result
         return result
 
     def names(self) -> dict[int, str]:

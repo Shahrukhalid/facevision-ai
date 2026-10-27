@@ -6,12 +6,13 @@ import { Alert, Button, Card, Empty, FileDrop, PageHeader, Select, Slider, Toggl
 import { api, errorText } from '../lib/api';
 import { useApp } from '../lib/store';
 import type { AnalysisOptions, FrameResult } from '../lib/types';
+import { useObjectUrl } from '../lib/useObjectUrl';
 import { dataUrlToBlob, downloadBlob, downloadText, facesToCsv, stamp } from '../lib/util';
 
 export default function ImageAnalyzer() {
   const { auth, modelReady } = useApp();
   const [file, setFile] = useState<File | null>(null);
-  const [src, setSrc] = useState<string | null>(null);
+  const src = useObjectUrl(file);
   const [result, setResult] = useState<FrameResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -36,7 +37,6 @@ export default function ImageAnalyzer() {
   };
   const choose = (f: File) => {
     setFile(f);
-    setSrc(URL.createObjectURL(f));
     run(f);
   };
   const base = file?.name.replace(/\.[^.]+$/, '') || 'image';
@@ -46,7 +46,7 @@ export default function ImageAnalyzer() {
       <PageHeader title="Image Analyzer" subtitle="Analyse a photo with several faces, inspect each one and export the results." />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-3">
-          {!src && <FileDrop accept="image/jpeg,image/png,image/webp" onFiles={(f) => choose(f[0])} label="Drop a photo or click to choose" hint="JPG, JPEG, PNG or WebP, up to 20 MB" />}
+          {!file && <FileDrop accept="image/jpeg,image/png,image/webp" onFiles={(f) => choose(f[0])} label="Drop a photo or click to choose" hint="JPG, JPEG, PNG or WebP, up to 20 MB" />}
           {src && <ImageResult src={src} result={result} canvasRef={canvasRef} overlay={{ landmarks: overlay, pose }} />}
           {busy && <p className="text-sm text-fog-400">Analysing…</p>}
           {err && <Alert tone="bad">{err}</Alert>}
@@ -56,7 +56,7 @@ export default function ImageAnalyzer() {
               <Button icon={<FileJson className="h-4 w-4" />} onClick={() => downloadText(JSON.stringify({ file: file?.name, analysed_at: new Date().toISOString(), ...result, faces: result.faces.map(({ crop, ...f }) => f) }, null, 2), `${base}-analysis.json`)}>JSON</Button>
               <Button icon={<FileSpreadsheet className="h-4 w-4" />} onClick={() => downloadText(facesToCsv(result, file?.name), `${base}-faces.csv`, 'text/csv')}>CSV</Button>
               <Button icon={<Scissors className="h-4 w-4" />} disabled={!result.faces.length} onClick={async () => { for (const f of result.faces) if (f.crop) downloadBlob(await dataUrlToBlob(f.crop), `${base}-face-${f.index + 1}.jpg`); }}>Face crops</Button>
-              <Button variant="ghost" icon={<Download className="h-4 w-4" />} onClick={() => { setSrc(null); setFile(null); setResult(null); }}>New image</Button>
+              <Button variant="ghost" icon={<Download className="h-4 w-4" />} onClick={() => { setFile(null); setResult(null); }}>New image</Button>
             </div>
           )}
           {result && (

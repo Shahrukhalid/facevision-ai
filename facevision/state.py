@@ -33,6 +33,43 @@ DEFAULT_SETTINGS = {
 }
 
 
+NUMERIC_RANGES = {
+    "detection_threshold": (0.05, 0.99),
+    "age_band_years": (0, 50),
+    "keep_job_outputs_days": (0, 3650),
+    "max_faces_live": (1, 100),
+}
+
+
+def validate_setting(key: str, value):
+    """Check type and range of one setting, so a bad value cannot break analysis or start-up later."""
+    if key not in DEFAULT_SETTINGS:
+        raise ValueError(f"Unknown setting: {key}")
+    default = DEFAULT_SETTINGS[key]
+    if isinstance(default, bool):
+        if not isinstance(value, bool):
+            raise ValueError(f"{key} must be true or false")
+        return value
+    if isinstance(default, (int, float)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{key} must be a number")
+        lo, hi = NUMERIC_RANGES[key]
+        if not lo <= value <= hi:
+            raise ValueError(f"{key} must be between {lo} and {hi}")
+        return int(value) if isinstance(default, int) and float(value).is_integer() else value
+    if isinstance(default, dict):
+        if not isinstance(value, dict) or not all(
+                isinstance(k, str) and isinstance(v, (int, float)) and not isinstance(v, bool) and -1.0 <= v <= 1.0
+                for k, v in value.items()):
+            raise ValueError(f"{key} must map model ids to numbers between -1 and 1")
+        return value
+    if not isinstance(value, str):
+        raise ValueError(f"{key} must be text")
+    if key == "preset" and value not in {"fast", "balanced", "detailed"}:
+        raise ValueError("preset must be fast, balanced or detailed")
+    return value
+
+
 @dataclass
 class AppState:
     config: Config
@@ -73,9 +110,7 @@ class AppState:
     def update_settings(self, changes: dict) -> dict:
         current = self.db.get_setting("app", {})
         for k, v in changes.items():
-            if k not in DEFAULT_SETTINGS:
-                raise ValueError(f"Unknown setting: {k}")
-            current[k] = v
+            current[k] = validate_setting(k, v)
         self.db.set_setting("app", current)
         if "accelerator" in changes:
             runtime.set_preference(changes["accelerator"])
@@ -91,7 +126,10 @@ class AppState:
 
     # ---- retention
     def cleanup_outputs(self) -> int:
-        days = float(self.settings().get("keep_job_outputs_days", 7))
+        try:
+            days = float(self.settings().get("keep_job_outputs_days", 7))
+        except (TypeError, ValueError):  # a bad value saved by an older version must not stop start-up
+            days = float(DEFAULT_SETTINGS["keep_job_outputs_days"])
         if days <= 0:
             return 0
         cutoff = time.time() - days * 86400
@@ -107,17 +145,31 @@ class AppState:
             self.db.execute("DELETE FROM jobs WHERE updated_at < ?",
                             (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(cutoff)),))
         for f in self.config.uploads_dir.glob("*"):
-            if f.stat().st_mtime < time.time() - 3600:
-                f.unlink(missing_ok=True)
+            try:
+                if f.stat().st_mtime < time.time() - 3600:
+                    f.unlink(missing_ok=True)
+            except OSError:
+                pass
         return removed
 
-    def clear_cache(self) -> dict:
+    def clear_cache(self, everything: bool = False) -> dict:
+        """Delete job outputs and temporary uploads, except those of jobs that are still queued or running.
+
+        everything=True (factory reset) first stops all jobs and waits for their workers, then deletes it all."""
+        if everything:
+            self.jobs.stop_all()
         n_files = 0
-        for d in (self.config.outputs_dir, self.config.uploads_dir):
-            for p in list(d.iterdir()):
-                shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
-                n_files += 1
-        self.db.execute("DELETE FROM jobs WHERE status NOT IN ('queued', 'running')")
+        # Registration of uploads and jobs takes the same lock, so nothing can be registered between the snapshot
+        # of active work and the directory listing.
+        with self.jobs.lock:
+            active_jobs, active_inputs = (set(), set()) if everything else self.jobs.active()
+            for d in (self.config.outputs_dir, self.config.uploads_dir):
+                for p in list(d.iterdir()):
+                    if p.name in active_jobs or p in active_inputs:
+                        continue
+                    shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
+                    n_files += 1
+            self.db.execute("DELETE FROM jobs WHERE status NOT IN ('queued', 'running')")
         self.db.audit("data.cache_cleared", f"items={n_files}")
         return {"removed": n_files}
 

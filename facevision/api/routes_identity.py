@@ -385,8 +385,12 @@ def delete_all(body: ConfirmBody, request: Request):
     st = require_identity(request)
     if body.confirm != "DELETE EVERYTHING":
         raise HTTPException(400, "Type DELETE EVERYTHING to confirm.")
+    try:
+        st.jobs.stop_all()  # workers must be finished before their files are deleted
+    except TimeoutError:
+        raise HTTPException(503, "Running jobs are still stopping. Try again in a moment.")
     n = st.identities.delete_all()
-    st.clear_cache()
+    st.clear_cache(everything=True)
     st.db.execute("DELETE FROM jobs")
     st.db.execute("DELETE FROM settings WHERE key='app'")
     st.db.execute("DELETE FROM audit")
