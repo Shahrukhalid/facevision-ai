@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, Badge, Button, Card, FileDrop, KV, PageHeader, Slider } from '../components/ui';
 import { api, errorText } from '../lib/api';
 import { useApp } from '../lib/store';
+import { useObjectUrl } from '../lib/useObjectUrl';
 import { fmtPct } from '../lib/util';
 
 interface Side {
@@ -38,13 +39,15 @@ export default function Compare() {
       setBusy(false);
     }
   };
+  const urlA = useObjectUrl(files.a);
+  const urlB = useObjectUrl(files.b);
   const threshold = thr ?? res?.threshold ?? 0.363;
   const match = res ? res.similarity >= threshold : false;
 
   const side = (key: 'a' | 'b', label: string) => (
     <Card title={label}>
       <FileDrop accept="image/jpeg,image/png,image/webp" onFiles={(f) => { const next = { ...files, [key]: f[0] }; const s = { ...sel, [key]: 0 }; setFiles(next); setSel(s); run(next, s); }} label={files[key]?.name || `Choose photo ${label.slice(-1)}`} />
-      {files[key] && <img src={URL.createObjectURL(files[key]!)} alt="" className="mt-3 max-h-56 w-full rounded-lg object-contain" />}
+      {(key === 'a' ? urlA : urlB) && <img src={(key === 'a' ? urlA : urlB)!} alt="" className="mt-3 max-h-56 w-full rounded-lg object-contain" />}
       {res && (
         <div className="mt-3 space-y-3">
           {res[key].faces.length > 1 && (

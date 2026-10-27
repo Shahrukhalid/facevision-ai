@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FrameResult } from '../src/lib/types';
-import { facesToCsv, fmtBytes, fmtPct, statusColor, titleCase } from '../src/lib/util';
+import { csvCell, facesToCsv, fmtBytes, fmtPct, statusColor, titleCase } from '../src/lib/util';
 import { NAV } from '../src/components/Layout';
 
 const result: FrameResult = {
@@ -59,5 +59,15 @@ describe('navigation', () => {
     const items = NAV.flatMap((g) => g.items);
     expect(items).toHaveLength(16);
     expect(new Set(items.map((i) => i.to)).size).toBe(16);
+  });
+});
+
+describe('csvCell', () => {
+  it('neutralises spreadsheet formulas in text but keeps numbers', () => {
+    expect(csvCell('=HYPERLINK("http://x")')).toBe(`"'=HYPERLINK(""http://x"")"`);
+    expect(csvCell('@SUM(A1)')).toBe("'@SUM(A1)");
+    expect(csvCell('-12.5')).toBe('-12.5');
+    expect(csvCell(-3)).toBe('-3');
+    expect(csvCell('Ada')).toBe('Ada');
   });
 });

@@ -7,12 +7,14 @@ import { Alert, Badge, Card, Empty, FileDrop, KV, PageHeader } from '../componen
 import { api, errorText } from '../lib/api';
 import { useApp } from '../lib/store';
 import type { FrameResult } from '../lib/types';
+import { useObjectUrl } from '../lib/useObjectUrl';
 import { statusColor, titleCase } from '../lib/util';
 
 export default function Recognition() {
   const { auth, settings, system } = useApp();
   const [live, setLive] = useState<FrameResult | null>(null);
-  const [photo, setPhoto] = useState<{ src: string; result: FrameResult } | null>(null);
+  const [photo, setPhoto] = useState<{ file: File; result: FrameResult } | null>(null);
+  const photoSrc = useObjectUrl(photo?.file);
   const [err, setErr] = useState<string | null>(null);
   const [count, setCount] = useState<number | null>(null);
 
@@ -24,7 +26,7 @@ export default function Recognition() {
     setErr(null);
     try {
       const r = await api.form<FrameResult>('/api/analyze', { file: f, options: JSON.stringify({ preset: 'balanced', recognition: true, max_side: 1280 }) });
-      setPhoto({ src: URL.createObjectURL(f), result: r });
+      setPhoto({ file: f, result: r });
     } catch (e) {
       setErr(errorText(e));
     }
@@ -85,7 +87,7 @@ export default function Recognition() {
           <FileDrop accept="image/jpeg,image/png,image/webp" onFiles={(f) => recognisePhoto(f[0])} label="Choose a photo" hint="Compared with enrolled people only" />
           <div className="min-w-0">
             {err && <Alert tone="bad">{err}</Alert>}
-            {photo && <ImageResult src={photo.src} result={photo.result} overlay={{ landmarks: 'none' }} />}
+            {photo && photoSrc && <ImageResult src={photoSrc} result={photo.result} overlay={{ landmarks: 'none' }} />}
           </div>
         </div>
       </Card>
