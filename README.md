@@ -131,6 +131,14 @@ See [docs/API.md](docs/API.md) for every endpoint.
 
 Face recognition can harm people when it is used without their knowledge. FaceVision AI is built for consent-based, local use: enrolling people who agreed to it, analysing your own photos and videos, and anonymising footage before sharing it. Do not use it for covert surveillance, and check the laws that apply to biometric data where you live (for example the GDPR in the EU/UK and BIPA in Illinois).
 
+## Roadmap
+
+Planned work that contributors can pick up. Each item becomes an issue with details; comment there to take it on.
+
+- [ ] Docker image and compose file for one-command setup on a Linux server
+- [ ] Progress bar and per-file error list for large batch jobs in the web interface
+- [ ] PDF summary export of a job report next to the CSV export
+
 ## License
 
 [MIT](LICENSE) for the code. Models keep their own licences, listed above and in the app's Model Manager.
