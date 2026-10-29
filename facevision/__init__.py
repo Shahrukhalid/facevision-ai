@@ -13,4 +13,4 @@ _os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
 MAX_IMAGE_PIXELS = 50_000_000
 _os.environ.setdefault("OPENCV_IO_MAX_IMAGE_PIXELS", str(MAX_IMAGE_PIXELS))
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
